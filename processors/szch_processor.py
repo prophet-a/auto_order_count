@@ -356,6 +356,27 @@ def find_szch_sections(text, rank_map):
         
         point_text = search_text[point_start:point_end]
         
+        # Спочатку перевіряємо, чи це НЕ звичайне вибуття для подальшого проходження служби
+        is_normal_departure = False
+        departure_indicators = [
+            "виключити зі списків особового складу",
+            "вважати такими, що справи і посаду здали",
+            "вважати такими, що справи і посаду здав",
+            "для подальшого проходження служби",
+            "вибули в розпорядження",
+            "вибув до нового місця служби",
+            "розпорядження начальника генерального штабу"
+        ]
+        
+        for indicator in departure_indicators:
+            if indicator in point_text.lower():
+                is_normal_departure = True
+                break
+        
+        # Якщо це звичайне вибуття - пропускаємо
+        if is_normal_departure:
+            continue
+        
         # Перевіряємо чи містить цей пункт ключові слова СЗЧ
         contains_szch = False
         keyword_found_in_point = "None" # Debugging variable
@@ -365,35 +386,24 @@ def find_szch_sections(text, rank_map):
                 keyword_found_in_point = key
                 break
 
-        # Check more specific phrases
+        # Check more specific phrases - тільки якщо є явна згадка самовільного залишення
         phrase_found_in_point = "None" # Debugging variable
         if not contains_szch: # Only check if keyword wasn't already found
-            # Додаємо більш загальні фрази для перевірки
-            if re.search(r'виключити.{1,50}забезпеч', point_text.lower()):
-                contains_szch = True
-                phrase_found_in_point = "виключити ... забезпечення (pattern)"
-            elif re.search(r'самовільн.{1,30}залиш', point_text.lower()):
+            # Перевіряємо наявність самовільного залишення
+            if re.search(r'самовільн.{1,30}залиш', point_text.lower()):
                 contains_szch = True
                 phrase_found_in_point = "самовільне залишення (pattern)"
+            # Виключити з усіх видів + самовільне
+            elif "у зв'язку" in point_text.lower() and "самовільн" in point_text.lower():
+                contains_szch = True
+                phrase_found_in_point = "у зв'язку з самовільним"
 
-        # Check conscript conditions
+        # Check conscript conditions - тільки з явною згадкою самовільного залишення
         conscript_check_passed = False # Debugging variable
         if not contains_szch: # Only check if not already found
-            if "за призовом" in point_text and (
-                "самовільн" in point_text.lower() or
-                "виключити" in point_text.lower() or
-                "залишенн" in point_text.lower()):
+            if "за призовом" in point_text and "самовільн" in point_text.lower():
                 contains_szch = True
                 conscript_check_passed = True
-                
-        # Додаткова перевірка для військовослужбовців
-        military_personnel_check = False
-        if not contains_szch and any(rank.lower() in point_text.lower() for rank in ranks):
-            # Якщо знайдено військове звання та є ознаки СЗЧ
-            if (re.search(r'з\s+(?:котлового|усіх|всіх).{1,20}забезпечення', point_text.lower()) or
-                "виключити" in point_text.lower() and "забезпечення" in point_text.lower()):
-                contains_szch = True
-                military_personnel_check = True
 
         # Final decision for the point
         if contains_szch:

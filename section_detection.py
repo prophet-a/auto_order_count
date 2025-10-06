@@ -31,14 +31,22 @@ def find_sections(text, section_markers):
     print("\n--- DEBUG: Searching for section markers within the provided text block ---")
     
     for marker, section_type in section_markers:
-        # Екрануємо маркер для безпечного пошуку та додаємо підтримку номерів підпунктів
-        escaped_marker = re.escape(marker.replace(':', ''))
-        # Додаємо підтримку для маркерів, які можуть бути в підпунктах (наприклад, "10.2. З відрядження:")
-        pattern = r'(?:\d+\.\d+\.\s*)?' + escaped_marker
-        print(f"  Searching for Type: '{section_type}', Marker: '{marker[:50]}...'")
+        # Перевіряємо чи маркер є regex патерном (починається з \d+ або містить regex символи)
+        is_regex = marker.startswith(r'\d+') or '\\d+' in marker or '.*?' in marker or '(?:' in marker
+        
+        if is_regex:
+            # Це regex патерн - використовуємо як є
+            pattern = marker
+            print(f"  Searching with REGEX for Type: '{section_type}', Pattern: '{marker[:50]}...'")
+        else:
+            # Це звичайний текст - екрануємо та додаємо підтримку номерів підпунктів
+            escaped_marker = re.escape(marker.replace(':', ''))
+            # Додаємо підтримку для маркерів, які можуть бути в підпунктах (наприклад, "10.2. З відрядження:")
+            pattern = r'(?:\d+\.\d+\.\s*)?' + escaped_marker
+            print(f"  Searching with TEXT for Type: '{section_type}', Marker: '{marker[:50]}...'")
         
         for match in re.finditer(pattern, normalized_text, re.IGNORECASE):
-            print(f"    Found raw marker '{marker[:50]}...' at relative index: {match.start()}")
+            print(f"    Found marker '{marker[:50]}...' at relative index: {match.start()}")
             
             # Визначення типу відрядження на основі контексту (залишаємо, може бути корисно)
             current_section_type = section_type
